@@ -1,0 +1,80 @@
+
+==== plan.txt ====
+10-19-2016	created this file
+12-16-2019	last update
+
+- recon programs
+	nciRec.m
+	nciRec2.m
+	nciRec7.m
+	nciRec8.m	working version for NCI/se-epi
+	nciRec9.m	working version for NIRS1
+	
+- protocols
+	placed in the same directory with data
+	NCI/se-epi/protocols.txt
+	NIRS/protocols.txt
+
+- nciRec8.m
+	last modified on 10-18-2016
+
+- nciRec9.m
+	forked off from nciRec8.m	10-19-2016
+
+- nciRec10.m
+	12-15-2016		forked off from nciRec8
+	for Ogawa Lab experiments
+
+- nciRecBOLD.m
+
+- nciRec12.m	working version for NIRS (mag)
+- nciRec13.m	working version for NIRS (phase)
+	---
+	NIRS current (2018-2019)
+		1. continuous optical stim (~0.2 sec stim / 1 sec) (NCI)
+		2. ~0.2sec stim, on for 10 sec, off for 10 sec (BOLD + NCI)
+		3. continuously alternating checkerbord stim, 10 sec on, 10 sec off (BOLD)
+
+==== seq differences
+	sRXSPEC.alDwellTime[0] = 2600	// NIRS
+	alTR[0] = 1000000
+
+	sRXSPEC.alDwellTime[0] = 2000	// Ogawa
+	alTR[0] = 1000000
+
+
+======
+plans
+
+- BOLD signal is detected by 1 Hz filtering (10sample avg), PCA etc. (mag, ser2 & 3)
+- There is 1.00 Hz signal (phase). Source is unknown (compressor ?)
+	-> remove by filtering
+- No clear BOLD signal on phase. ~1Hz signal (cardiac) seems to corespond to BOLD
+	-> chk correlation with arterial and venous signal
+
+==== final report for NIRS 5-10-2019
+
+==== next phase (started on 12-16-2019) ====
+
+- model / hypothesis based processing
+		signal accumulation, moving average, low freq BPF
+		mag first (nciRec12.m)
+
+- combined processing (BOLD and NCI) 12-18-2019
+	no PCA -> no mag mask
+	== BOLD side ==
+	1. 1st BOLD estimate by projecting time signal to response curve (model)
+	2. Place ROI at large response area
+	3. 2nd BOLD estimate by projecting ROI signal to response
+	4. caclurate "response index" (signal / model correlation)
+	5. weighted sum -> final BOLD response
+	== NCI side ==
+	6. 1st NCI estimate by cumulative filter + projection onto model
+	7. identify response area
+	8. calc "BOLD response index" & NCI correlation
+	9. NCI average by weighting by "BOLD response index"
+
+===== end of file ===
+
+
+
