@@ -3,7 +3,7 @@
 //	6-12-2018		forked off from nciRec9
 //	this is for NIRS experiments
 //	new scheme using GR-EPI and long delay
-//	first phase only (second phsae is done in nciRec12)
+//	first phase only (second phase is done in nciRec12)
 
 //	=== plans ===
 
@@ -79,12 +79,12 @@ main(int ac, char *av[])
 		system("rm IMG_*");
 
 // === read raw ===
-		study = 5;
+		study = 2;
 			// 1 : 2018-6-11-1
 			// 2 : 2018-6-11-2
-			// 3 : 2018-6-27
-			// 4 : 2018-6-29
-			// 5 : 2019-1-21
+			// 3 : 2018-6-27 (rot)
+			// 4 : 2018-6-29 (rot)
+			// 5 : 2019-1-21 ser 1 bad data
 			// 6 : 2019-2-4
 			// 7 : 2019-2-15
 		series = 1;
@@ -245,6 +245,9 @@ printf("coil prof calc\n");
 		prof = [img coilProfile2DForLoop:chLp];
 printf("combine\n");
 		img = [img combineForLoop:chLp withProfile:prof];
+		if (study == 3 || study == 4) {
+			[img rotate:1];
+		}
 		path = [NSString stringWithFormat:@"%@/IMG_comb", work];
 		[img saveAsKOImage:path];
 

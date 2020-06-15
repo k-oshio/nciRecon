@@ -74,6 +74,10 @@ plans
 	8. calc "BOLD response index" & NCI correlation
 	9. NCI average by weighting by "BOLD response index"
 
+- K+ imaging (accumulated white matter current) 6-16-2020
+	1. chk all protocols (including NCI only)
+	2. chk whole brain data (obata, 11-28-2018)
+
 ===== end of file ===
 
 

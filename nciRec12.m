@@ -81,10 +81,10 @@ main(int ac, char *av[])
 		study = 6;
 			// 1 : 2018-6-11-1
 			// 2 : 2018-6-11-2
-			// 3 : 2018-6-27
-			// 4 : 2018-6-29
+			// *3 : 2018-6-27
+			// *4 : 2018-6-29
 			// 5 : 2019-1-21
-			// 6 : 2019-2-4
+			// *6 : 2019-2-4
 			// 7 : 2019-2-15
 		series = 2;
 			//==== 1.0 sec protocol
@@ -121,7 +121,7 @@ main(int ac, char *av[])
 			break;	// study 6
 		case 7:
 			base = @"/Users/oshio/images/NCI/NIRS/2019-0215";
-			break;	// study 6
+			break;	// study 7
 		}
 		work = [NSString stringWithFormat:@"%@/results/%d", base, series];
 		path = [NSString stringWithFormat:@"%@/IMG_comb", work];
@@ -130,9 +130,11 @@ main(int ac, char *av[])
 	// initially no loop structure
 		
 	//	[img copyImageData:tmp_img];
-		if (study == 3 || study == 4) {
-			[img rotate:1];
-		}
+
+// moved to nciRec11 (initial recon)
+//		if (study == 3 || study == 4) {
+//			[img rotate:1];
+//		}
 
 		avg = [img avgForLoop:[img zLoop]];
 		path = [NSString stringWithFormat:@"%@/IMG_avg", work];
