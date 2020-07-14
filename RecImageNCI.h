@@ -25,8 +25,8 @@ void		dump_tdist(int df);
 - (RecLoop *)blockAvgForLoop:(RecLoop *)lp blockSize:(int)blkSz dummy:(int)ds;
 - (RecLoop *)breakLoop:(RecLoop *)avgLp blockSize:(int)sz dummy:(int)ds;
 - (RecImage *)kFilt:(int)mmt;	// mmt 0:dipole, 1:quadrupole
-- (RecImage *)toDipole;
-- (RecImage *)toQuadrupole;
+//- (RecImage *)toDipole;
+//- (RecImage *)toQuadrupole;
 
 - (void)removeDC2dWithMask:(RecImage *)mask;
 
@@ -43,7 +43,7 @@ void		dump_tdist(int df);
 - (RecImage *)filtImag:(float)w forLoop:(RecLoop *)lp;	// HPfilt imag (frac = 1), avg real
 - (void)clearSliceAtIndex:(int)ix;
 - (void)pcaFilt:(int)ns;	// PCA type variance filter
-- (void)pcaFilt:(int)ns stim:(float *)st;	// PCA type variance filter
+//- (void)pcaFilt:(int)ns stim:(float *)st;	// PCA type variance filter
 - (void)outerProd:(RecImage *)wt andVector:(float *)bs len:(int)len;	// ## make basis RecImage
 - (void)singleFreqFilt:(int)freq forLoop:(RecLoop *)lp;	// remove single frequency (single fourier coeff)
 - (void)cycFilt:(int)len forLoop:(RecLoop *)lp;	// remove single frequency (cyclic filter)
@@ -59,7 +59,7 @@ void		dump_tdist(int df);
 - (RecImage *)pImageWithRef:(RecImage *)ref forLoop:(RecLoop *)avgLp thres:(float)thres mode:(int)mode;
 - (RecImage *)fusionWith:(RecImage *)sg gain:(float)g mode:(int)mode;
 - (RecImage *)fusionWithPimg:(RecImage *)sg gain:(float)g;
-- (void)timePcorr:(RecLoop *)lp;
+//- (void)timePcorr:(RecLoop *)lp;
 
 - (void)pestPoly2d:(RecImage *)coef;
 - (void)baseline2Avg:(RecLoop *)avgLp phs:(RecLoop *)phs;
