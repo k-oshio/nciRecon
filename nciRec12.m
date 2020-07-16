@@ -276,7 +276,7 @@ time_pca(RecImage *img)
 }
 
 // ### started on 12-27-2018 (copied pca)
-// ### 7-12 update (
+// ### 7-12 probably ok now...
 void
 time_ica(RecImage *img, int nComp)
 {
