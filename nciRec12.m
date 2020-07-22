@@ -25,7 +25,7 @@
 #import <NumKit/NumKit.h>
 
 void		time_pca(RecImage *img);
-void		time_ica(RecImage *img, int nComp);
+void        time_ica(RecImage *img, int nComp);
 void		mk_kern(void);			// Gabor kernel
 void		test_model(void);			// q & d model
 RecImage	*phasor_filt(RecImage *img, float *re, float *im, int n);
@@ -39,6 +39,7 @@ float		frq = 0.8;
 float		wd = 0.5;
 int			nblk = 4;
 
+int         study, series;
 // block average
 int			avgMode;	// 0: low-res, no block, 1: hi-res, 20 sec block, 2: hi-res, 2 sec block, 3: on-off -> freq analysis
 int			bSize;
@@ -51,7 +52,6 @@ main(int ac, char *av[])
 {
     RecImage        *img, *tmp_img;
 	RecImage		*mgmask, *spmask, *avg;
-	int				study, series;
 	BOOL			bold;
     BOOL            mask_on;
 	RecLoop			*tmLp, *phsLp, *avgLp, *blkLp, *xLp, *yLp;
@@ -82,11 +82,11 @@ main(int ac, char *av[])
 	}
 // === read raw ===
 //      3-2, *3-3, 4-2, *4-3, 6-2, *6-3
-		study = 6;
+		study = 7;
 			//   1 : 2018-6-11-1
-			//   2 : 2018-6-11-2
+			//   2 : 2018-6-11-2 (V1 center)
 			//  *3 : 2018-6-27
-			// **4 : 2018-6-29
+			//  *4 : 2018-6-29
 			//   5 : 2019-1-21
 			//  *6 : 2019-2-4
 			//   7 : 2019-2-15
@@ -99,13 +99,16 @@ main(int ac, char *av[])
 			// 2,3: 10 * 10 dda, 12 * 320 
 		bold = YES;
                 //         dwSize, blkSize
-		avgMode = 2;	// 0: 1, 3200, 1: 10, 3200, 2: 1, 200, 240 3: 1, 200, sp mask
+		avgMode = 1;	// 0: 1, 3200, 1: 10, 3200, 2: 1, 200, 240 3: 1, 200, sp mask
+  
+        printf("stu:%d, ser:%d, avg:%d\n", study, series, avgMode);
+
         if (avgMode == 3) {
             mask_on = YES;
         } else {
             mask_on = NO;
         }
-		nComp = 15;		// 14
+		nComp = 20;		// 14
 
 	printf("read raw\n");
 		switch (study) {
@@ -174,6 +177,9 @@ main(int ac, char *av[])
         xLp = [RecLoop loopWithDataLength:xDim];
         yLp = [RecLoop loopWithDataLength:yDim];
         tDim = 3600; //1200;	// 3800 total, (100-on / 100-off) x 16
+        if (study > 5) {
+            tDim = 3360;
+        }
         iDim = xDim * yDim;
     //	avgLp = [img crop:avgLp to:380 startAt:dda];
         tmLp = [img crop:[img zLoop] to:tDim startAt:dda + 0];
@@ -275,77 +281,172 @@ time_pca(RecImage *img)
 	[tmp_img saveAsKOImage:path];
 }
 
+NumMatrix *
+makeRespMat(int nt) // time dim, delay dim
+{
+    NumMatrix   *mat;
+    float       *p;
+    int         i, j, k, del, dd; // 1 sec interval
+    int         nd;
+    int         nstim = 1;
+    int         stmlen = 1;
+    // global : study, series, avgMode
+
+    if (study <= 5) {
+        nd = 11;
+    } else {
+        nd = 13;
+    }
+    switch (avgMode) {
+    case 1 :
+        mat = [NumMatrix matrixOfType:NUM_REAL nRow:nt nCol:nd];
+        dd = 1;
+
+        if (study <= 5) { // pass stmlen later
+            stmlen = 10;
+        } else {
+            stmlen = 12;
+        }
+        nstim = nt / (stmlen * 2);
+        for (k = 0; k < nd; k++) {
+            del = dd * k;
+            p = [mat data] + nt * k;
+            for (j = 0; j < nt; j++) {
+                p[j] = -0.5;
+            }
+            for (i = 0; i < nstim; i++) {
+                p = [mat data] + nt * k + i * stmlen * 2;
+                for (j = del; j < stmlen + del; j++) {
+                    p[j] = 0.5;
+                }
+            }
+        }
+        break;
+    case 2:
+        mat = [NumMatrix matrixOfType:NUM_REAL nRow:nt nCol:nd];
+        if (series == 1) {
+            dd = 1;
+            stmlen = 5;
+        } else {
+            dd = 10;
+            stmlen = nt/2;
+        }
+        nstim = nt / (stmlen * 2);
+        for (k = 0; k < nd; k++) {
+            del = dd * k;
+            p = [mat data] + nt * k;
+            for (j = 0; j < nt; j++) {
+                p[j] = -0.5;
+            }
+            for (i = 0; i < nstim; i++) {
+                p = [mat data] + nt * k + i * stmlen * 2;
+                for (j = del; j < stmlen + del; j++) {
+                    p[j] = 0.5;
+                }
+            }
+        }
+        break;
+    }
+
+    return mat;
+}
+
 // ### started on 12-27-2018 (copied pca)
 // ### 7-12 probably ok now...
 void
 time_ica(RecImage *img, int nComp)
 {
-        int             tDim, iDim;
-        int             xDim, yDim;
-        int             i;
-        RecImage        *img_a, *img_sp, *img_tm;
-        RecImage        *pca;
-        NumMatrix       *A, *tmp;
-        NSDictionary    *res;
-        RecImage        *bold, *nci, *at, *col;
-        NSString        *path;
+    int             tDim, iDim;
+    int             xDim, yDim;
+//    int             i, j;
+    RecImage        *img_a, *img_sp, *img_tm;
+    RecImage        *pca, *pcat;
+    NumMatrix       *A, *tmp, *sg;
+    NSDictionary    *res;
+    RecImage        *bold, *nci, *at, *col;
+    NSString        *path;
+    NumMatrix       *Resp, *P, *S, *C;
+    float           *buf, *p, *s, sum;       // -> make this Matrix obj
+    // global : study, series, avgMode
 
 path = [NSString stringWithFormat:@"%@/IMG_in", work];
 [img saveAsKOImage:path];
 
-        xDim = [img xDim];
-        yDim = [img yDim];
-        tDim = [img zDim];
-        iDim = xDim * yDim;
-        img_a = [RecImage imageOfType:RECIMAGE_REAL xDim:iDim yDim:tDim];   // this is correct (trans of doc)
-        [img_a copyImageData:img];
-        A = [img_a toMatrix];
+    xDim = [img xDim];
+    yDim = [img yDim];
+    tDim = [img zDim];
+    iDim = xDim * yDim;
+    img_a = [RecImage imageOfType:RECIMAGE_REAL xDim:iDim yDim:tDim];   // this is correct (trans of doc)
+    [img_a copyImageData:img];
+    A = [img_a toMatrix];
 path = [NSString stringWithFormat:@"%@/IMG_A", work];
 [A saveAsKOImage:path];
 
-        res = [A icaForNC:nComp];
-        img_sp = [img copy];
-        [img_sp crop:[img_sp zLoop] to:nComp startAt:0];
+    res = [A icaForNC:nComp];
+    img_sp = [img copy];
+    [img_sp crop:[img_sp zLoop] to:nComp startAt:0];
 // *PCA (U)
-   //     tmp = [[res objectForKey:@"U"] toRecImage];
-        [img_sp copyImageData:[[res objectForKey:@"U"] toRecImage]];
-        path = [NSString stringWithFormat:@"%@/IMG_PCA", work];
-        [img_sp saveAsKOImage:path];
+    [img_sp copyImageData:[[res objectForKey:@"U"] toRecImage]];
+    path = [NSString stringWithFormat:@"%@/IMG_PCA", work];
+    [img_sp saveAsKOImage:path];
 // *PCAt (Vt)
-        img_tm = [[res objectForKey:@"Vt"] toRecImage];
-        path = [NSString stringWithFormat:@"%@/IMG_PCAt", work];
-        [img_tm saveAsKOImage:path];
+    img_tm = [[res objectForKey:@"Vt"] toRecImage];
+    path = [NSString stringWithFormat:@"%@/IMG_PCAt", work];
+    [img_tm saveAsKOImage:path];
 // PCA sg
-        tmp = [res objectForKey:@"Sg"];
-        path = [NSString stringWithFormat:@"%@/IMG_Sg", work];
-        [tmp saveAsKOImage:path];
+    sg = [res objectForKey:@"Sg"];
+    path = [NSString stringWithFormat:@"%@/IMG_Sg", work];
+    [tmp saveAsKOImage:path];
 // *ICA (Y) 
-        [img_sp copyImageData:[[res objectForKey:@"Y"] toRecImage]]; // -> make "copyMatrixData" method
-        path = [NSString stringWithFormat:@"%@/IMG_ICA", work];
-        [img_sp saveAsKOImage:path];
+    [img_sp copyImageData:[[res objectForKey:@"Y"] toRecImage]]; // -> make "copyMatrixData" method
+    path = [NSString stringWithFormat:@"%@/IMG_ICA", work];
+    [img_sp saveAsKOImage:path];
 // *color map
-        bold = [img_sp sliceAtIndex:0];
-        nci  = [img_sp sliceAtIndex:3];
-        at   = [img_sp sliceAtIndex:2];
-        [bold magnitude];
-        [nci magnitude];
-        [at magnitude];
-        col = [img_sp makeColorWithR:nci G:bold B:at];
-        [col saveAsKOImage:@"IMG_col"];
+    bold = [img_sp sliceAtIndex:0];
+    nci  = [img_sp sliceAtIndex:3];
+    at   = [img_sp sliceAtIndex:2];
+    [bold magnitude];
+    [nci magnitude];
+    [at magnitude];
+    col = [img_sp makeColorWithR:nci G:bold B:at];
+    [col saveAsKOImage:@"IMG_col"];
 // *ICAt (WX)
-        img_tm = [[res objectForKey:@"WX"] toRecImage];
-        [img_tm trans];
-        path = [NSString stringWithFormat:@"%@/IMG_ICAt", work];
-        [img_tm saveAsKOImage:path];    // WX
+    img_tm = [[res objectForKey:@"WX"] toRecImage];
+    [img_tm trans];
+    path = [NSString stringWithFormat:@"%@/IMG_ICAt", work];
+    [img_tm saveAsKOImage:path];    // WX
 // *ICA W
-        img_tm = [[res objectForKey:@"W"] toRecImage];
-        path = [NSString stringWithFormat:@"%@/IMG_W", work];
-        [img_tm saveAsKOImage:path];    // W
+    img_tm = [[res objectForKey:@"W"] toRecImage];
+    path = [NSString stringWithFormat:@"%@/IMG_W", work];
+    [img_tm saveAsKOImage:path];    // W
 // *ICA sg
-        tmp = [res objectForKey:@"WSg"];
-        path = [NSString stringWithFormat:@"%@/IMG_WSg", work];
-        [tmp saveAsKOImage:path];
-    }
+    tmp = [res objectForKey:@"WSg"];
+    path = [NSString stringWithFormat:@"%@/IMG_WSg", work];
+    [tmp saveAsKOImage:path];
+
+// ===== projection onto stim vector
+    Resp = makeRespMat(tDim); // time dim, delay dim
+    path = [NSString stringWithFormat:@"%@/IMG_Resp", work];
+    [Resp saveAsKOImage:path];
+
+    P = [res objectForKey:@"Vt"];
+    S = [[res objectForKey:@"Sg"] diagMat];
+    C = [[Resp trans] multByMat:[P trans]];
+    tmp = [C multByMat:P];
+    path = [NSString stringWithFormat:@"%@/IMG_Qt", work];
+    [tmp saveAsKOImage:path];
+
+    [img_sp crop:[img_sp zLoop] to:[Resp nCol] startAt:0];
+    tmp = [res objectForKey:@"U"];
+    tmp = [S multByMat:tmp];
+    tmp = [C multByMat:tmp];
+    path = [NSString stringWithFormat:@"%@/IMG_Qsp", work];
+    [img_sp copyImageData:[tmp toRecImage]];
+    [img_sp saveAsKOImage:path];
+
+
+
+}
 
 // phasor filter
 RecImage *
