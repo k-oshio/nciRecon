@@ -26,12 +26,15 @@
 
 void		time_pca(RecImage *img);
 void        time_ica(RecImage *img, int nComp);
+RecImage    *time_phasor(RecImage *img);
 void		mk_kern(void);			// Gabor kernel
 void		test_model(void);			// q & d model
 RecImage	*phasor_filt(RecImage *img, float *re, float *im, int n);
 RecImage	*phasor_hist(RecImage *img, int x, int y, float scale);
 NSString	*base, *work, *path;
 RecImage	*tmp_img;
+
+int         dda = 100;    // 10sec * 10phs
 
 // phasor
 float		kc[11], ks[11];
@@ -55,7 +58,6 @@ main(int ac, char *av[])
 	BOOL			bold;
     BOOL            mask_on;
 	RecLoop			*tmLp, *phsLp, *avgLp, *blkLp, *xLp, *yLp;
-	int				dda = 100;	// 10sec * 10phs
 	int				xDim = 64, yDim = 64;
 	int				tDim, iDim, bDim, oDim, nPixel;
     int             i, j, k;
@@ -80,19 +82,24 @@ main(int ac, char *av[])
 		test_model();
 		exit(0);
 	}
+
 // === read raw ===
 //      3-2, *3-3, 4-2, *4-3, 6-2, *6-3
-		study = 7;
+		study = 1;
+// ===== study loop ====
+//for (study = 1; study <= 7; study++) {
+for (study = 3; study <= 3; study++) {
+    if (study == 5) continue; // skip
 			//   1 : 2018-6-11-1
 			//   2 : 2018-6-11-2 (V1 center)
 			//  *3 : 2018-6-27
 			//  *4 : 2018-6-29
-			//   5 : 2019-1-21
+			//   5 : 2019-1-21 (skip)
 			//  *6 : 2019-2-4
 			//   7 : 2019-2-15
 		series = 3;
 			//==== 1.0 sec protocol
-			// 1 : 10 * 10 dda, 10 * 380 (NCI)
+			// 1 : 10 * 10 dda, 10 * 380 (NCI, step response)
 			// 2 : 10 * 10 dda, 10 * 380 (BOLD with short stim) 
 			// 3 : 10 * 10 dda, 10 * 380 (BOLD with continuous stim)
 			//==== 1.2 sec protocol
@@ -100,15 +107,10 @@ main(int ac, char *av[])
 		bold = YES;
                 //         dwSize, blkSize
 		avgMode = 1;	// 0: 1, 3200, 1: 10, 3200, 2: 1, 200, 240 3: 1, 200, sp mask
+        nComp = 10;//20;        // 20
+        mask_on = NO;
   
         printf("stu:%d, ser:%d, avg:%d\n", study, series, avgMode);
-
-        if (avgMode == 3) {
-            mask_on = YES;
-        } else {
-            mask_on = NO;
-        }
-		nComp = 20;		// 14
 
 	printf("read raw\n");
 		switch (study) {
@@ -136,7 +138,7 @@ main(int ac, char *av[])
 		}
         work = [NSString stringWithFormat:@"%@/results/%d", base, series];
 		path = [NSString stringWithFormat:@"%@/IMG_comb", work];
-		img = [RecImage imageWithKOImage:path];
+		img = [RecImage imageWithKOImage:path]; // input image
 
 		avg = [img avgForLoop:[img zLoop]];
 		path = [NSString stringWithFormat:@"%@/IMG_avg", work];
@@ -148,7 +150,8 @@ main(int ac, char *av[])
 		p = [spmask data];
 		iDim = [spmask dataLength];
 		for (i = 0; i < iDim; i++) {
-			if (i < iDim*32/64) {
+			if (i < iDim*36/64                      // 32
+                || i % 64 < 20 || i % 64 > 44) {    // 24
 				p[i] = 0;
 			} else {
 				p[i] = 1;
@@ -169,7 +172,7 @@ main(int ac, char *av[])
 				nPixel++;
 			}
 		}
-		printf("nPixel = %d\n", nPixel);
+//		printf("nPixel = %d\n", nPixel);
 
 // ===== block ===== (current 11-10-2018)
 //		if (series == 2 || series == 3) {
@@ -182,13 +185,23 @@ main(int ac, char *av[])
         }
         iDim = xDim * yDim;
     //	avgLp = [img crop:avgLp to:380 startAt:dda];
-        tmLp = [img crop:[img zLoop] to:tDim startAt:dda + 0];
+   //     tmLp = [img crop:[img zLoop] to:tDim startAt:dda + 0];
+        if (avgMode == 1) { // include dda
+            tDim += dda;
+            tmLp = [img crop:[img zLoop] to:tDim startAt:0];
+        } else {
+            tmLp = [img crop:[img zLoop] to:tDim startAt:dda];
+            dda = 0;
+        }
 
         [img multByImage:mgmask];
         [img magnitude];
-        avg = [img avgForLoop:[img zLoop]];
+
+    // baseline
+        avg = [img avgForLoop:[img zLoop]]; // mean of all
+        
         [img subImage:avg];
-        path = [NSString stringWithFormat:@"%@/IMG_mg0", work];  // 0 mean
+        path = [NSString stringWithFormat:@"%@/IMG_mg0", work];
         [img saveAsKOImage:path];
 
         switch (avgMode) {
@@ -227,7 +240,13 @@ main(int ac, char *av[])
 
 //		time_pca(img);
         time_ica(img, nComp);
+        tmp_img = time_phasor(img);
+        path = [NSString stringWithFormat:@"%@/IMG_psr", work];
+        [tmp_img saveAsKOImage:path];
 
+    printf("study #%d done\n", study);
+}   // ===== study loop ==========
+    
     }   // @autoreleasepool
 
     return 0;
@@ -282,65 +301,76 @@ time_pca(RecImage *img)
 }
 
 NumMatrix *
-makeRespMat(int nt) // time dim, delay dim
+makeRespMat(int nt) // time dim
 {
     NumMatrix   *mat;
     float       *p;
-    int         i, j, k, del, dd; // 1 sec interval
+    float       hi, lo;
+    int         i, j, k, del, dstp; // 1 sec interval
     int         nd;
     int         nstim = 1;
-    int         stmlen = 1;
+    int         non, noff, blklen;
     // global : study, series, avgMode
 
     if (study <= 5) {
-        nd = 11;
+        nd = 20;
     } else {
-        nd = 13;
+        nd = 24;
     }
     switch (avgMode) {
     case 1 :
         mat = [NumMatrix matrixOfType:NUM_REAL nRow:nt nCol:nd];
-        dd = 1;
+        dstp = 1;
+        non = 1;
 
         if (study <= 5) { // pass stmlen later
-            stmlen = 10;
+            blklen = 20;
         } else {
-            stmlen = 12;
+            blklen = 24;
         }
-        nstim = nt / (stmlen * 2);
+        noff = blklen - non;
+        nstim = nt / blklen;
+        hi = 1.0;
+//        lo = -1.0 / noff;
+        lo = 0;
         for (k = 0; k < nd; k++) {
-            del = dd * k;
+            del = dstp * k;
             p = [mat data] + nt * k;
-            for (j = 0; j < nt; j++) {
-                p[j] = -0.5;
+            for (j = 0; j < dda; j++) {
+                p[j] = lo;
             }
             for (i = 0; i < nstim; i++) {
-                p = [mat data] + nt * k + i * stmlen * 2;
-                for (j = del; j < stmlen + del; j++) {
-                    p[j] = 0.5;
+                p = [mat data] + nt * k + i * blklen + dda/10;
+                for (j = del; j < non + del; j++) {
+                    p[j] = hi;
+                }
+                for (; j < blklen + del; j++) {
+                    p[j] = lo;
                 }
             }
         }
         break;
     case 2:
         mat = [NumMatrix matrixOfType:NUM_REAL nRow:nt nCol:nd];
+        blklen = nt;
         if (series == 1) {
-            dd = 1;
-            stmlen = 5;
+            dstp = 1;
+            non = blklen/2;
+            noff = blklen - non;
         } else {
-            dd = 10;
-            stmlen = nt/2;
+            dstp = 10;
+            non = blklen/2;
         }
-        nstim = nt / (stmlen * 2);
+        nstim = nt / blklen;
         for (k = 0; k < nd; k++) {
-            del = dd * k;
+            del = dstp * k;
             p = [mat data] + nt * k;
             for (j = 0; j < nt; j++) {
                 p[j] = -0.5;
             }
             for (i = 0; i < nstim; i++) {
-                p = [mat data] + nt * k + i * stmlen * 2;
-                for (j = del; j < stmlen + del; j++) {
+                p = [mat data] + nt * k + i * blklen;
+                for (j = del; j < blklen + del; j++) {
                     p[j] = 0.5;
                 }
             }
@@ -444,8 +474,72 @@ path = [NSString stringWithFormat:@"%@/IMG_A", work];
     [img_sp copyImageData:[tmp toRecImage]];
     [img_sp saveAsKOImage:path];
 
+[img_sp clear];
+    tmp = [[Resp trans] multByMat:A]; // ### dim not correct
+    [img_sp copyImageData:[tmp toRecImage]];
+    [img_sp subImage:[img_sp sliceAtIndex:0]];
+    path = [NSString stringWithFormat:@"%@/IMG_BOLD", work];
+    [img_sp saveAsKOImage:path];
+    
 
 
+}
+
+// visualize delay
+RecImage *
+time_phasor(RecImage *img)
+{
+    int         i, j;
+    float       *pp;
+    float       *p, *q;
+    int         tDim, iDim;
+    float       wLen;
+    float       *cs, *sn, th, sig;
+    float       sumr, sumi;
+    RecImage    *psr;
+
+    tDim = [img zDim];
+    iDim = [img xDim] * [img yDim];
+
+    psr = [RecImage imageOfType:RECIMAGE_COMPLEX xDim:[img xDim] yDim:[img yDim]];
+    switch (avgMode) {
+    case 1 :
+        if (study <= 5) { // pass stmlen later
+            wLen = 20;
+        } else {
+            wLen = 24;
+        }
+        break;
+    case 2 :
+        wLen = tDim;
+        break;
+    }
+printf("wlen = %f\n", wLen);
+
+    cs = (float *)malloc(sizeof(float) * tDim);
+    sn = (float *)malloc(sizeof(float) * tDim);
+    for (i = 0; i < tDim; i++) {
+        th = (float)i * M_PI * 2 / wLen;
+        cs[i] = cos(th);
+        sn[i] = sin(th);
+        printf("%d %f %f\n", i, cs[i], sn[i]);
+    }
+    
+    pp = [img data];
+    p = [psr real];
+    q = [psr imag];
+    for (i = 0; i < iDim; i++) {
+        sumr = sumi = 0;
+        for (j = 0; j < tDim; j++) {
+            sig = pp[j * iDim + i];
+            sumr += sig * cs[j];
+            sumi += sig * sn[j];
+        }
+        p[i] = sumr;
+        q[i] = sumi;
+    }
+
+    return psr;
 }
 
 // phasor filter
