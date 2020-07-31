@@ -59,7 +59,7 @@ main(int ac, char *av[])
     BOOL            mask_on;
 	RecLoop			*tmLp, *phsLp, *avgLp, *blkLp, *xLp, *yLp;
 	int				xDim = 64, yDim = 64;
-	int				tDim, iDim, bDim, oDim, nPixel;
+	int				tDim, iDim, oDim, nPixel;
     int             i, j, k;
     float           *p, *pp;
 
@@ -88,7 +88,7 @@ main(int ac, char *av[])
 		study = 1;
 // ===== study loop ====
 //for (study = 1; study <= 7; study++) {
-for (study = 3; study <= 3; study++) {
+for (study = 6; study <= 6; study++) {
     if (study == 5) continue; // skip
 			//   1 : 2018-6-11-1
 			//   2 : 2018-6-11-2 (V1 center)
@@ -106,9 +106,21 @@ for (study = 3; study <= 3; study++) {
 			// 2,3: 10 * 10 dda, 12 * 320 
 		bold = YES;
                 //         dwSize, blkSize
-		avgMode = 1;	// 0: 1, 3200, 1: 10, 3200, 2: 1, 200, 240 3: 1, 200, sp mask
-        nComp = 10;//20;        // 20
-        mask_on = NO;
+		avgMode = 3;	// 0: 1, 3200, 1: 10, 3200, 2: 1, 200, 240 3: 1, 200, sp mask
+		switch (avgMode) {
+		case 1 :
+			nComp = 20;
+			mask_on = NO;
+			break;
+		case 2 :
+			nComp = 20;
+			mask_on = NO;
+			break;
+		case 3:
+			nComp = 20;
+			mask_on = YES;
+			break;
+		}
   
         printf("stu:%d, ser:%d, avg:%d\n", study, series, avgMode);
 
@@ -240,9 +252,9 @@ for (study = 3; study <= 3; study++) {
 
 //		time_pca(img);
         time_ica(img, nComp);
-        tmp_img = time_phasor(img);
-        path = [NSString stringWithFormat:@"%@/IMG_psr", work];
-        [tmp_img saveAsKOImage:path];
+//        tmp_img = time_phasor(img);
+//        path = [NSString stringWithFormat:@"%@/IMG_psr", work];
+//        [tmp_img saveAsKOImage:path];
 
     printf("study #%d done\n", study);
 }   // ===== study loop ==========
@@ -285,10 +297,6 @@ time_pca(RecImage *img)
 	img_u = Num_m_to_im(sres->U);
 	[img_u trans];
 	[img_u crop:[img_u yLoop] to:32 startAt:0];
-	if (bold) {
-	//	img_u = [img_u scale1dLoop:[img_u xLoop] to:[img_u xDim]/10];
-	//	bDim /= 10;
-	}
 	path = [NSString stringWithFormat:@"%@/IMG_U", work];
 	[img_u saveAsKOImage:path];
 	for (i = 0; i < 20; i++) {
